@@ -1,114 +1,92 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow strict-local
- */
+import React, {useState, useEffect} from 'react';
+import ContactScreen from './components/ContactScreen';
+import SplashScreen from './components/SplashScreen';
 
-import React from 'react';
-import {
-  SafeAreaView,
-  StyleSheet,
-  ScrollView,
-  View,
-  Text,
-  StatusBar,
-} from 'react-native';
+const calls = [
+  {
+    id: 1,
+    name: 'Mark Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar7.png',
+  },
+  {
+    id: 2,
+    name: 'Clark Man',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar6.png',
+  },
+  {
+    id: 3,
+    name: 'Jaden Boor',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar5.png',
+  },
+  {
+    id: 4,
+    name: 'Srick Tree',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar4.png',
+  },
+  {
+    id: 5,
+    name: 'John Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar3.png',
+  },
+  {
+    id: 6,
+    name: 'John Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar2.png',
+  },
+  {
+    id: 8,
+    name: 'John Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar1.png',
+  },
+  {
+    id: 9,
+    name: 'John Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar4.png',
+  },
+  {
+    id: 10,
+    name: 'John Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar7.png',
+  },
+  {
+    id: 11,
+    name: 'John Doe',
+    value: 'Pin',
+    pin: 'lklkjdljfldjfdf',
+    image: 'https://bootdey.com/img/Content/avatar/avatar1.png',
+  },
+];
 
-import {
-  Header,
-  LearnMoreLinks,
-  Colors,
-  DebugInstructions,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
+export default App = () => {
+  const [isLoading, updatedLoading] = useState(true);
 
-const App: () => React$Node = () => {
-  return (
-    <>
-      <StatusBar barStyle="dark-content" />
-      <SafeAreaView>
-        <ScrollView
-          contentInsetAdjustmentBehavior="automatic"
-          style={styles.scrollView}>
-          <Header />
-          {global.HermesInternal == null ? null : (
-            <View style={styles.engine}>
-              <Text style={styles.footer}>Engine: Hermes</Text>
-            </View>
-          )}
-          <View style={styles.body}>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Step One</Text>
-              <Text style={styles.sectionDescription}>
-                Edit <Text style={styles.highlight}>App.js</Text> to change this
-                screen and then come back to see your edits.
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>See Your Changes</Text>
-              <Text style={styles.sectionDescription}>
-                <ReloadInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Debug</Text>
-              <Text style={styles.sectionDescription}>
-                <DebugInstructions />
-              </Text>
-            </View>
-            <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Learn More</Text>
-              <Text style={styles.sectionDescription}>
-                Read the docs to discover what to do next:
-              </Text>
-            </View>
-            <LearnMoreLinks />
-          </View>
-        </ScrollView>
-      </SafeAreaView>
-    </>
+  useEffect(() => {
+    setTimeout(async () => updatedLoading(false), 1000);
+  });
+
+  const appStatus = isLoading ? (
+    <SplashScreen />
+  ) : (
+    <ContactScreen calls={calls} />
   );
+
+  return appStatus;
 };
-
-const styles = StyleSheet.create({
-  scrollView: {
-    backgroundColor: Colors.lighter,
-  },
-  engine: {
-    position: 'absolute',
-    right: 0,
-  },
-  body: {
-    backgroundColor: Colors.white,
-  },
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
-  },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: Colors.black,
-  },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-    color: Colors.dark,
-  },
-  highlight: {
-    fontWeight: '700',
-  },
-  footer: {
-    color: Colors.dark,
-    fontSize: 12,
-    fontWeight: '600',
-    padding: 4,
-    paddingRight: 12,
-    textAlign: 'right',
-  },
-});
-
-export default App;
