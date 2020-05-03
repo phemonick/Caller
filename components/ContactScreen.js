@@ -11,9 +11,6 @@ import {
   Platform,
 } from 'react-native';
 import {PERMISSIONS, request} from 'react-native-permissions';
-import CallerScreen from './CallerScreen';
-import Profile from './Profile';
-
 import {
   RTCPeerConnection,
   RTCIceCandidate,
@@ -24,6 +21,9 @@ import {
   mediaDevices,
   registerGlobals,
 } from 'react-native-webrtc';
+
+import CallerScreen from './CallerScreen';
+import Profile from './Profile';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -88,9 +88,19 @@ const styles = {
   },
 };
 
+const configuration = {iceServers: [{url: 'stun:stun.l.google.com:19302'}]};
+const pc = new RTCPeerConnection(configuration);
+
 const ContactScreen = ({calls}) => {
   const [isCall, updateCalling] = useState(false);
   const [user, getUser] = useState('');
+
+  const [localStream, setLocalStream] = React.useState();
+  const [remoteStream, setRemoteStream] = React.useState();
+  const [cachedLocalPC, setCachedLocalPC] = React.useState();
+  const [cachedRemotePC, setCachedRemotePC] = React.useState();
+
+  const [isMuted, setIsMuted] = React.useState(false);
 
   useEffect(() => {
     request(
@@ -101,9 +111,16 @@ const ContactScreen = ({calls}) => {
     );
   });
 
-  const makeCall = item => {
+  const makeCall = async item => {
     getUser(item);
     updateCalling(true);
+    try {
+      const stream = await mediaDevices.getUserMedia({audio: true});
+      console.log(stream, 'Got stream');
+    } catch (error) {
+      updateCalling(false);
+      console.log(error, 'error stream');
+    }
   };
 
   const renderContact = ({item}) => {
