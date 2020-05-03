@@ -1,4 +1,4 @@
-import React, {useState} from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,7 @@ import {
   Image,
   ScrollView,
   Dimensions,
-  Platform
+  Platform,
 } from 'react-native';
 import {PERMISSIONS, request} from 'react-native-permissions';
 import CallerScreen from './CallerScreen';
@@ -91,7 +91,6 @@ const styles = {
 const ContactScreen = ({calls}) => {
   const [isCall, updateCalling] = useState(false);
   const [user, getUser] = useState('');
-
 
   useEffect(() => {
     request(
