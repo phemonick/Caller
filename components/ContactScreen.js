@@ -12,6 +12,18 @@ import {
 import CallerScreen from './CallerScreen';
 import Profile from './Profile';
 
+import {
+  RTCPeerConnection,
+  RTCIceCandidate,
+  RTCSessionDescription,
+  RTCView,
+  MediaStream,
+  MediaStreamTrack,
+  mediaDevices,
+  registerGlobals,
+} from 'react-native-webrtc';
+
+
 const screenWidth = Dimensions.get('window').width;
 
 const styles = {

@@ -23,6 +23,10 @@
 	<key>CFBundleVersion</key>
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
+
+	<key>NSMicrophoneUsageDescription</key>
+  <string>YOUR TEXT</string>
+
 	<true/>
 	<key>NSAppTransportSecurity</key>
 	<dict>

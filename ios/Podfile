@@ -80,6 +80,9 @@ target 'Caller' do
   target 'CallerTests' do
     inherit! :complete
     # Pods for testing
+    pod 'Permission-Microphone', :path => '#{permissions_path}/Microphone.podspec'
+
+ 
   end
 
   use_native_modules!
