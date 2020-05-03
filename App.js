@@ -1,6 +1,4 @@
 import React, {useState, useEffect} from 'react';
-import {Platform} from 'react-native';
-import {PERMISSIONS, request} from 'react-native-permissions';
 import ContactScreen from './components/ContactScreen';
 import SplashScreen from './components/SplashScreen';
 
@@ -79,15 +77,6 @@ const calls = [
 
 export default (App = () => {
   const [isLoading, updatedLoading] = useState(true);
-
-  useEffect(() => {
-    request(
-      Platform.select({
-        android: PERMISSIONS.ANDROID.MICROPHONE,
-        ios: PERMISSIONS.IOS.MICROPHONE,
-      }),
-    );
-  });
 
   useEffect(() => {
     setTimeout(async () => updatedLoading(false), 1000);

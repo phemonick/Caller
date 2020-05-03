@@ -8,7 +8,9 @@ import {
   Image,
   ScrollView,
   Dimensions,
+  Platform
 } from 'react-native';
+import {PERMISSIONS, request} from 'react-native-permissions';
 import CallerScreen from './CallerScreen';
 import Profile from './Profile';
 
@@ -23,13 +25,11 @@ import {
   registerGlobals,
 } from 'react-native-webrtc';
 
-
 const screenWidth = Dimensions.get('window').width;
 
 const styles = {
   container: {
     flex: 1,
-    // width: screenWidth,
   },
   headerStyle: {
     fontSize: 25,
@@ -91,6 +91,16 @@ const styles = {
 const ContactScreen = ({calls}) => {
   const [isCall, updateCalling] = useState(false);
   const [user, getUser] = useState('');
+
+
+  useEffect(() => {
+    request(
+      Platform.select({
+        android: PERMISSIONS.ANDROID.MICROPHONE,
+        ios: PERMISSIONS.IOS.MICROPHONE,
+      }),
+    );
+  });
 
   const makeCall = item => {
     getUser(item);
