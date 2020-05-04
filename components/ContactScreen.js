@@ -11,13 +11,20 @@ import {
   Platform,
   Alert,
 } from 'react-native';
-import {mediaDevices} from 'react-native-webrtc';
+import {
+  RTCPeerConnection,
+  mediaDevices,
+} from 'react-native-webrtc';
+
 import {PERMISSIONS, request} from 'react-native-permissions';
 
 import CallerScreen from './CallerScreen';
 import Profile from './Profile';
 
 const screenWidth = Dimensions.get('window').width;
+// const configuration = {iceServers: [{url: 'stun:stun.l.google.com:19302'}]};
+
+// const pc = new RTCPeerConnection(configuration);
 
 const styles = {
   container: {
@@ -87,6 +94,9 @@ const ContactScreen = ({calls}) => {
   const [localStream, setLocalStream] = useState();
   const [remoteStream, setRemoteStream] = useState();
 
+  const [cachedLocalPC, setCachedLocalPC] = useState();
+  const [cachedRemotePC, setCachedRemotePC] = useState();
+
   useEffect(() => {
     request(
       Platform.select({
@@ -104,13 +114,137 @@ const ContactScreen = ({calls}) => {
       setLocalStream(stream);
       caller(true);
       // setRemoteStream(new MediaStream());
-      console.log('Got Stream: localVideo', localStream);
+      console.log('Got Stream: locaAudio');
     } catch (error) {
       updateCalling(false);
       caller(true);
       console.log(error, 'error stream');
     }
   };
+
+  const startCall = async item => {
+    await openUserMedia(item);
+    const configuration = {iceServers: [{url: 'stun:stun.l.google.com:19302'}]};
+    const localPC = new RTCPeerConnection(configuration);
+    const remotePC = new RTCPeerConnection(configuration);
+    localPC.onicecandidate = e => {
+      try {
+        console.log('localPC icecandidate:', e.candidate);
+        if (e.candidate) {
+          remotePC.addIceCandidate(e.candidate);
+        }
+      } catch (err) {
+        console.error(`Error adding remotePC iceCandidate: ${err}`);
+      }
+    };
+
+    remotePC.onicecandidate = e => {
+      try {
+        console.log('remotePC icecandidate:', e.candidate);
+        if (e.candidate) {
+          localPC.addIceCandidate(e.candidate);
+        }
+      } catch (err) {
+        console.error(`Error adding localPC iceCandidate: ${err}`);
+      }
+    };
+    remotePC.onaddstream = e => {
+      console.log('remotePC tracking with ', e);
+      if (e.stream && remoteStream !== e.stream) {
+        console.log('RemotePC received the stream', e.stream);
+        setRemoteStream(e.stream);
+      }
+    };
+
+    localPC.addStream(localStream);
+
+    try {
+      const offer = await localPC.createOffer();
+      console.log('Offer from localPC, setLocalDescription');
+      await localPC.setLocalDescription(offer);
+      console.log('remotePC, setRemoteDescription');
+
+      await remotePC.setRemoteDescription(localPC.localDescription);
+      console.log('RemotePC, createAnswer');
+
+      const answer = await remotePC.createAnswer();
+      console.log(`Answer from remotePC: ${answer.sdp}`);
+      console.log('remotePC, setLocalDescription');
+      await remotePC.setLocalDescription(answer);
+      console.log('localPC, setRemoteDescription');
+      await localPC.setRemoteDescription(remotePC.localDescription);
+    } catch (err) {
+      console.error(err);
+    }
+    setCachedLocalPC(localPC);
+    setCachedRemotePC(remotePC);
+  };
+
+  // const startCall = async () => {
+  //   pc.onicecandidate = e => {
+  //     try {
+  //       console.log('localPC icecandidate:', e.candidate);
+  //       if (e.candidate) {
+  //         pc.addIceCandidate(e.candidate);
+  //       }
+  //     } catch (err) {
+  //       console.error(`Error adding remotePC iceCandidate: ${err}`);
+  //     }
+  //   };
+
+  //   pc.onaddstream = e => {
+  //     setRemoteStream(e.stream);
+  //     console.log('other stream', e.stream, e.stream.toURL());
+  //   };
+
+  //   pc.addStream(props.localStream);
+
+  //   try {
+  //     const offer = await pc.createOffer();
+  //     console.log('Offer from localPC, setLocalDescription');
+  //     await pc.setLocalDescription(offer);
+  //     console.log('remotePC, setRemoteDescription');
+  //     await pc.setRemoteDescription(pc.localDescription);
+  //     setOffer(offer);
+  //     setCachedLocalPC(pc);
+  //   } catch (err) {
+  //     console.error(err);
+  //   }
+  // };
+
+    // const joinCall = async () => {
+  //   pc.onicecandidate = e => {
+  //     try {
+  //       console.log('localPC icecandidate:', e.candidate);
+  //       if (e.candidate) {
+  //         pc.addIceCandidate(e.candidate);
+  //       }
+  //     } catch (err) {
+  //       console.error(`Error adding remotePC iceCandidate: ${err}`);
+  //     }
+  //   };
+
+  //   pc.onaddstream = e => {
+  //     setRemoteStream(e.stream);
+  //     console.log('other stream', e.stream, e.stream.toURL());
+  //   };
+
+  //   pc.addStream(props.localStream);
+
+  //   try {
+  //     await pc.setRemoteDescription(offer.localDescription);
+  //     console.log('RemotePC, createAnswer');
+
+  //     const answer = await pc.createAnswer();
+  //     console.log(`Answer from remotePC: ${answer.sdp}`);
+  //     console.log('remotePC, setLocalDescription');
+  //     await pc.setLocalDescription(answer);
+  //     setCachedRemotePC(pc);
+  //     console.log('localPC, setRemoteDescription');
+  //   } catch (err) {
+  //     console.error(err);
+  //   }
+  // };
 
   const openAlert = () => {
     Alert.alert(
@@ -155,7 +289,7 @@ const ContactScreen = ({calls}) => {
         <TouchableOpacity>
           <Image
             style={[styles.icon, {marginRight: 50}]}
-            onStartShouldSetResponder={() => openUserMedia(item)}
+            onStartShouldSetResponder={() => startCall(item)}
             source={{uri: 'https://img.icons8.com/color/48/000000/phone.png'}}
           />
         </TouchableOpacity>
@@ -226,9 +360,10 @@ const ContactScreen = ({calls}) => {
           updateCalling={updateCalling}
           item={user}
           localStream={localStream}
+          setLocalStream={setLocalStream}
           remoteStream={remoteStream}
-          isCaller={isCaller}
           setRemoteStream={setRemoteStream}
+          isCaller={isCaller}
         />
       )}
     </>
