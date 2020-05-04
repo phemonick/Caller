@@ -9,18 +9,10 @@ import {
   ScrollView,
   Dimensions,
   Platform,
+  Alert,
 } from 'react-native';
+import {mediaDevices} from 'react-native-webrtc';
 import {PERMISSIONS, request} from 'react-native-permissions';
-import {
-  RTCPeerConnection,
-  RTCIceCandidate,
-  RTCSessionDescription,
-  RTCView,
-  MediaStream,
-  MediaStreamTrack,
-  mediaDevices,
-  registerGlobals,
-} from 'react-native-webrtc';
 
 import CallerScreen from './CallerScreen';
 import Profile from './Profile';
@@ -88,19 +80,12 @@ const styles = {
   },
 };
 
-const configuration = {iceServers: [{url: 'stun:stun.l.google.com:19302'}]};
-const pc = new RTCPeerConnection(configuration);
-
 const ContactScreen = ({calls}) => {
   const [isCall, updateCalling] = useState(false);
   const [user, getUser] = useState('');
-
-  const [localStream, setLocalStream] = React.useState();
-  const [remoteStream, setRemoteStream] = React.useState();
-  const [cachedLocalPC, setCachedLocalPC] = React.useState();
-  const [cachedRemotePC, setCachedRemotePC] = React.useState();
-
-  const [isMuted, setIsMuted] = React.useState(false);
+  const [isCaller, caller] = useState(false);
+  const [localStream, setLocalStream] = useState();
+  const [remoteStream, setRemoteStream] = useState();
 
   useEffect(() => {
     request(
@@ -111,16 +96,36 @@ const ContactScreen = ({calls}) => {
     );
   });
 
-  const makeCall = async item => {
+  const openUserMedia = async item => {
     getUser(item);
     updateCalling(true);
     try {
       const stream = await mediaDevices.getUserMedia({audio: true});
-      console.log(stream, 'Got stream');
+      setLocalStream(stream);
+      caller(true);
+      // setRemoteStream(new MediaStream());
+      console.log('Got Stream: localVideo', localStream);
     } catch (error) {
       updateCalling(false);
+      caller(true);
       console.log(error, 'error stream');
     }
+  };
+
+  const openAlert = () => {
+    Alert.alert(
+      'Calling',
+      'Accept call ?',
+      [
+        {
+          text: 'Cancel',
+          onPress: () => console.log('Cancel Pressed'),
+          style: 'No',
+        },
+        {text: 'Yes', onPress: () => console.log('OK Pressed')},
+      ],
+      {cancelable: false},
+    );
   };
 
   const renderContact = ({item}) => {
@@ -150,7 +155,7 @@ const ContactScreen = ({calls}) => {
         <TouchableOpacity>
           <Image
             style={[styles.icon, {marginRight: 50}]}
-            onStartShouldSetResponder={() => makeCall(item)}
+            onStartShouldSetResponder={() => openUserMedia(item)}
             source={{uri: 'https://img.icons8.com/color/48/000000/phone.png'}}
           />
         </TouchableOpacity>
@@ -182,6 +187,9 @@ const ContactScreen = ({calls}) => {
             Profile
           </Text>
         </TouchableOpacity>
+        <Text style={styles.subStyle} onPress={openAlert}>
+          Join call
+        </Text>
       </View>
     </>
   );
@@ -201,7 +209,6 @@ const ContactScreen = ({calls}) => {
               data={calls}
               keyExtractor={item => item.id.toString()}
               renderItem={renderContact}
-              // ListHeaderComponent={headerContent()}
             />
             <Profile />
           </ScrollView>
@@ -215,7 +222,14 @@ const ContactScreen = ({calls}) => {
       {!isCall ? (
         contactHeader()
       ) : (
-        <CallerScreen updateCalling={updateCalling} item={user} />
+        <CallerScreen
+          updateCalling={updateCalling}
+          item={user}
+          localStream={localStream}
+          remoteStream={remoteStream}
+          isCaller={isCaller}
+          setRemoteStream={setRemoteStream}
+        />
       )}
     </>
   );
