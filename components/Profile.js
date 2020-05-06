@@ -25,18 +25,22 @@ const styles = {
   },
 };
 
-const Profile = () => {
+const Profile = props => {
+
   return (
     <View style={styles.container}>
       <Image
         source={{uri: 'https://bootdey.com/img/Content/avatar/avatar6.png'}}
         style={styles.pic}
       />
-      <Text style={styles.headerStyle}>Joe Doe</Text>
+      <Text style={styles.headerStyle}>{props.user.name}</Text>
       <Text style={styles.headerStyle}>English</Text>
-      <Text style={styles.headerStyle}>ID: lklkjdljfldjfdf</Text>
+      <Text style={styles.headerStyle}>Id: {props.user.roomId}</Text>
     </View>
   );
 };
 
 export default Profile;
+
+
+

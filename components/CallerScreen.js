@@ -1,7 +1,6 @@
 import React, {useState, useEffect} from 'react';
 import {Text, View, Image, StatusBar, TouchableOpacity} from 'react-native';
 
-
 const styles = {
   container: {
     flex: 1,
@@ -46,15 +45,6 @@ const styles = {
 };
 
 const CallerScreen = props => {
-  const [cachedLocalPC, setCachedLocalPC] = useState();
-  const [cachedRemotePC, setCachedRemotePC] = useState();
-
-  const [isMuted, setIsMuted] = useState(false);
-
-
-
-
-
   const endCall = () => props.updateCalling(false);
 
   return (
@@ -74,6 +64,15 @@ const CallerScreen = props => {
               }}
               style={styles.pic}
             />
+            <Text
+              style={{
+                height: 40,
+                borderColor: 'gray',
+                color: 'black',
+                borderWidth: 1,
+              }}>
+              {props.callRoomId}
+            </Text>
           </View>
           <TouchableOpacity style={styles.button} onPress={endCall}>
             <Text style={{fontSize: 25, color: 'white'}}>End</Text>
