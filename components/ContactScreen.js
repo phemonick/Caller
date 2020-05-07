@@ -106,13 +106,24 @@ const UUID = () => {
   });
 };
 
+// forceNode: true,
+
+const SocketServer = 'https://74537080.ngrok.io';
+
+const connectionConfig = {
+  jsonp: false,
+  reconnection: true,
+  reconnectionDelay: 100,
+  reconnectionAttempts: 5000,
+  transports: ['websocket'],
+};
+
 const ContactScreen = () => {
-  const [socket] = useState(() =>
-    io('https://74537080.ngrok.io', {forceNode: true}),
-  );
+  const [socket] = useState(() => io(SocketServer, connectionConfig));
   const [isCall, updateCalling] = useState(false);
   const [user, getUser] = useState('');
   const [isCaller, caller] = useState(false);
+  const [acceptCall, onAcceptCall] = useState();
   const [localStream, setLocalStream] = useState();
   const [remoteStream, setRemoteStream] = useState();
   const [cachedLocalPC, setCachedLocalPC] = useState();
@@ -143,21 +154,7 @@ const ContactScreen = () => {
   };
 
   socket.on('updateUserList', users => {
-    console.log(users, 'lol');
-    // updateUser([userList, ...users]);
-  });
-
-  // const updateUserList = () => {
-  //   console.log('yes yes yes yes');
-  //   socket.on('updateUserList', users => {
-  //     console.log(users, 'lol');
-  //     updateUser([userList, ...users]);
-  //   });
-  // };
-
-  socket.on('updateUserList', users => {
-    console.log(users, 'lol');
-    // updateUser([userList, ...users]);
+    updateUser([...userList, ...users]);
   });
 
   const openUserMedia = async item => {
@@ -177,141 +174,184 @@ const ContactScreen = () => {
   const startCall = async item => {
     const mediaStream = await openUserMedia(item);
     setLocalStream(mediaStream);
-    const roomRef = await db.collection('rooms').doc();
-    // console.log(roomRef, 'roomRef')
     pc.addStream(mediaStream);
-    const callerCandidatesCollection = roomRef.collection('callerCandidates');
-    pc.onicecandidate = e => {
-      callerCandidatesCollection.add(e.candidate.toJSON());
-      // console.log('send candidate', e.candidate);
-    };
-    const offer = await pc.createOffer();
 
-    await pc.setLocalDescription(offer);
-
-    const roomWithOffer = {
-      offer: {
-        type: offer.type,
-        sdp: offer.sdp,
-      },
-    };
-
-    await roomRef.set(roomWithOffer);
-    setCallRoomId(roomRef.id);
-    pc.onaddstream = e => {
-      setRemoteStream(e.e.stream.toURL());
-      // console.log('other stream', e.stream.toURL());
-    };
-
-    roomRef.onSnapshot(async snapshot => {
-      const data = snapshot.data();
-      if (!pc.currentRemoteDescription && data && data.answer) {
-        // console.log('Got remote description: ', data.answer);
-        const rtcSessionDescription = new RTCSessionDescription(data.answer);
-        await pc.setRemoteDescription(rtcSessionDescription);
-      }
+    socket.emit('call_user', {
+      type: 'call_user',
+      name: item.name,
+      callername: item.name,
+      roomId: item.roomId,
     });
-    // Listening for remote session description above
 
-    // Listen for remote ICE candidates below
-    roomRef.collection('calleeCandidates').onSnapshot(snapshot => {
-      snapshot.docChanges().forEach(async change => {
-        if (change.type === 'added') {
-          let data = change.doc.data();
-          // console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
-          await pc.addIceCandidate(new RTCIceCandidate(data));
-        }
-      });
-    });
-    // Listen for remote ICE candidates above
-    setCachedLocalPC(pc);
+    // ;
+    //     pc.onicecandidate = e => {
+    //       callerCandidatesCollection.add(e.candidate.toJSON());
+    //       // console.log('send candidate', e.candidate);
+    //     };
+    //     const offer = await pc.createOffer();
+
+    //     await pc.setLocalDescription(offer);
+
+    //     const roomWithOffer = {
+    //       offer: {
+    //         type: offer.type,
+    //         sdp: offer.sdp,
+    //       },
+    //     };
+
+    // await roomRef.set(roomWithOffer);
+    // setCallRoomId(roomRef.id);
+    // pc.onaddstream = e => {
+    //   setRemoteStream(e.e.stream.toURL());
+    //   // console.log('other stream', e.stream.toURL());
+    // };
+
+    // roomRef.onSnapshot(async snapshot => {
+    //   const data = snapshot.data();
+    //   if (!pc.currentRemoteDescription && data && data.answer) {
+    //     // console.log('Got remote description: ', data.answer);
+    //     const rtcSessionDescription = new RTCSessionDescription(data.answer);
+    //     await pc.setRemoteDescription(rtcSessionDescription);
+    //   }
+    // });
+    // // Listening for remote session description above
+
+    // // Listen for remote ICE candidates below
+    // roomRef.collection('calleeCandidates').onSnapshot(snapshot => {
+    //   snapshot.docChanges().forEach(async change => {
+    //     if (change.type === 'added') {
+    //       let data = change.doc.data();
+    //       // console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
+    //       await pc.addIceCandidate(new RTCIceCandidate(data));
+    //     }
+    //   });
+    // });
+    // // Listen for remote ICE candidates above
+    // setCachedLocalPC(pc);
     // console.log(`Current room is ${roomRef.id} - You are the caller!`);
   };
 
-  const joinCall = async roomId => {
-    const mediaStream = await openUserMedia('item');
-    const roomRef = db.collection('rooms').doc(`${roomId}`);
-    const roomSnapshot = await roomRef.get();
-    console.log('Got room:', roomSnapshot.exists);
+  socket.on('answer', data => {
+    openAlert(data);
+    // if (busy == false) {
+    //   busy = true;
+    //   incallwith = data.callername;
+    //   // var res = confirm(data.callername + ' is calling you');
+    //   if (acceptCall == true) {
+    //     console.log('call accepted');
+    //     startCall(item);
+    //     // code
+    //     socket.emit('call_accepted', {
+    //       type: 'call_accepted',
+    //       callername: data.callername,
+    //       from: username,
+    //     });
+    //   } else {
+    //     console.log('call rejected');
+    //     socket.emit('call_rejected', {
+    //       type: 'call_rejected',
+    //       callername: data.callername,
+    //       from: username,
+    //     });
+    //     busy = false;
+    //     incallwith = '';
+    //   }
+    // } else {
+    //   console.log('call busy');
+    //   socket.emit('call_busy', {
+    //     type: 'call_busy',
+    //     callername: data.callername,
+    //     from: username,
+    //   });
+    //   busy = false;
+    //   incallwith = '';
+    // }
+  });
 
-    if (roomSnapshot.exists) {
-      console.log('Create PeerConnection with configuration: ', configuration);
-      setLocalStream(mediaStream);
-      pc.addStream(mediaStream);
-      const calleeCandidatesCollection = roomRef.collection('calleeCandidates');
+  // const joinCall = async roomId => {
+  //   const mediaStream = await openUserMedia('item');
+  //   const roomRef = db.collection('rooms').doc(`${roomId}`);
+  //   const roomSnapshot = await roomRef.get();
+  //   console.log('Got room:', roomSnapshot.exists);
 
-      pc.onicecandidate = e => {
-        if (e.candidate) {
-          console.log('localPC icecandidate:', e.candidate.toJSON());
-        }
-      };
+  //   if (roomSnapshot.exists) {
+  //     console.log('Create PeerConnection with configuration: ', configuration);
+  //     setLocalStream(mediaStream);
+  //     pc.addStream(mediaStream);
+  //     const calleeCandidatesCollection = roomRef.collection('calleeCandidates');
 
-      pc.onaddstream = e => {
-        setRemoteStream(e.stream);
-        console.log('Got remote track:', e.streams[0]);
-      };
+  //     pc.onicecandidate = e => {
+  //       if (e.candidate) {
+  //         console.log('localPC icecandidate:', e.candidate.toJSON());
+  //       }
+  //     };
 
-      const offer = roomSnapshot.data().offer;
-      console.log('Got offer:', offer);
-      await pc.setRemoteDescription(new RTCSessionDescription(offer));
-      const answer = await pc.createAnswer();
-      console.log('Created answer:', answer);
-      await pc.setLocalDescription(answer);
+  //     pc.onaddstream = e => {
+  //       setRemoteStream(e.stream);
+  //       console.log('Got remote track:', e.streams[0]);
+  //     };
 
-      const roomWithAnswer = {
-        answer: {
-          type: answer.type,
-          sdp: answer.sdp,
-        },
-      };
+  //     const offer = roomSnapshot.data().offer;
+  //     console.log('Got offer:', offer);
+  //     await pc.setRemoteDescription(new RTCSessionDescription(offer));
+  //     const answer = await pc.createAnswer();
+  //     console.log('Created answer:', answer);
+  //     await pc.setLocalDescription(answer);
 
-      await roomRef.update(roomWithAnswer);
+  //     const roomWithAnswer = {
+  //       answer: {
+  //         type: answer.type,
+  //         sdp: answer.sdp,
+  //       },
+  //     };
 
-      roomRef.collection('callerCandidates').onSnapshot(snapshot => {
-        snapshot.docChanges().forEach(async change => {
-          if (change.type === 'added') {
-            let data = change.doc.data();
-            console.log(
-              `Got new remote ICE candidate: ${JSON.stringify(data)}`,
-            );
-            await pc.addIceCandidate(new RTCIceCandidate(data));
-          }
-        });
-      });
-      // await roomRef.update(roomWithAnswer);
+  //     await roomRef.update(roomWithAnswer);
 
-      // await pc.setLocalDescription(offer);
+  //     roomRef.collection('callerCandidates').onSnapshot(snapshot => {
+  //       snapshot.docChanges().forEach(async change => {
+  //         if (change.type === 'added') {
+  //           let data = change.doc.data();
+  //           console.log(
+  //             `Got new remote ICE candidate: ${JSON.stringify(data)}`,
+  //           );
+  //           await pc.addIceCandidate(new RTCIceCandidate(data));
+  //         }
+  //       });
+  //     });
+  //     // await roomRef.update(roomWithAnswer);
 
-      // await pc.addIceCandidate(new RTCIceCandidate(data));
-    }
-    setCachedLocalPC(pc);
+  //     // await pc.setLocalDescription(offer);
 
-    // await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    // const answer = await pc.createAnswer();
-    // console.log('Created answer:', answer);
-    // await pc.setLocalDescription(answer);
+  //     // await pc.addIceCandidate(new RTCIceCandidate(data));
+  //   }
+  //   setCachedLocalPC(pc);
 
-    // const calleeCandidatesCollection = roomRef.collection('calleeCandidates');
+  //   // await pc.setRemoteDescription(new RTCSessionDescription(offer));
+  //   // const answer = await pc.createAnswer();
+  //   // console.log('Created answer:', answer);
+  //   // await pc.setLocalDescription(answer);
 
-    // await pc.addIceCandidate(new RTCIceCandidate(data));
+  //   // const calleeCandidatesCollection = roomRef.collection('calleeCandidates');
 
-    // pc.onaddstream = e => {
-    //   setRemoteStream(e.stream);
-    //   console.log('other stream', e.stream, e.stream.toURL());
-    // };
-  };
+  //   // await pc.addIceCandidate(new RTCIceCandidate(data));
 
-  const openAlert = () => {
+  //   // pc.onaddstream = e => {
+  //   //   setRemoteStream(e.stream);
+  //   //   console.log('other stream', e.stream, e.stream.toURL());
+  //   // };
+  // };
+
+  const openAlert = data => {
     Alert.alert(
       'Calling',
-      `Join call ? ${value}`,
+      `${data.name} is calling you`,
       [
         {
           text: 'Cancel',
-          onPress: () => console.log('Cancel Pressed'),
+          onPress: () => onAcceptCall(false),
           style: 'No',
         },
-        {text: 'Yes', onPress: () => joinCall(value)},
+        {text: 'Yes', onPress: () => onAcceptCall(true)},
       ],
       {cancelable: false},
     );
@@ -402,12 +442,12 @@ const ContactScreen = () => {
                   textAlign: 'center',
                   marginTop: 50,
                 }}>
-                No user online
+                Loading user online
               </Text>
             ) : (
               <FlatList
                 data={userList}
-                keyExtractor={item => item.id.toString()}
+                keyExtractor={item => item.roomId.toString()}
                 renderItem={renderContact}
               />
             )}
