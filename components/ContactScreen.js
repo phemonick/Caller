@@ -108,7 +108,7 @@ const UUID = () => {
 
 // forceNode: true,
 
-const SocketServer = 'https://74537080.ngrok.io';
+const SocketServer = 'https://4f7f9a18.ngrok.io';
 
 const connectionConfig = {
   jsonp: false,
@@ -116,6 +116,8 @@ const connectionConfig = {
   reconnectionDelay: 100,
   reconnectionAttempts: 5000,
   transports: ['websocket'],
+  secure: true,
+  rejectUnauthorized: false,
 };
 
 const ContactScreen = () => {
@@ -130,6 +132,7 @@ const ContactScreen = () => {
   const [cachedRemotePC, setCachedRemotePC] = useState();
   const [callRoomId, setCallRoomId] = useState();
   const [value, onChangeText] = useState('');
+  const [busy, isBusy] = useState(false);
   const [loginUser] = useState({
     id: 11,
     name: faker.fake('{{name.lastName}}, {{name.firstName}}'),
@@ -146,14 +149,12 @@ const ContactScreen = () => {
         ios: PERMISSIONS.IOS.MICROPHONE,
       }),
     );
-    startSocket();
   });
 
-  const startSocket = () => {
-    socket.emit('login', loginUser);
-  };
+  socket.emit('login', loginUser);
 
   socket.on('updateUserList', users => {
+    console.log(users, 'users');
     updateUser([...userList, ...users]);
   });
 
@@ -174,174 +175,116 @@ const ContactScreen = () => {
   const startCall = async item => {
     const mediaStream = await openUserMedia(item);
     setLocalStream(mediaStream);
+    pc.onicecandidate = e => {
+      if (e.candidate) {
+        // socket.emit('exchange', {
+        //   to: item.roomOId,
+        //   candidate: e.candidate,
+        // });
+        new RTCIceCandidate(e.candidate);
+        // remotePC.addIceCandidate(e.candidate);
+      }
+    };
+
+    pc.onaddstream = e => {
+      setRemoteStream(e.stream.toURL());
+      console.log('other stream', e.stream.toURL());
+    };
+
     pc.addStream(mediaStream);
 
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
     socket.emit('call_user', {
       type: 'call_user',
       name: item.name,
-      callername: item.name,
+      callername: item,
       roomId: item.roomId,
+      offer,
     });
-
-    // ;
-    //     pc.onicecandidate = e => {
-    //       callerCandidatesCollection.add(e.candidate.toJSON());
-    //       // console.log('send candidate', e.candidate);
-    //     };
-    //     const offer = await pc.createOffer();
-
-    //     await pc.setLocalDescription(offer);
-
-    //     const roomWithOffer = {
-    //       offer: {
-    //         type: offer.type,
-    //         sdp: offer.sdp,
-    //       },
-    //     };
-
-    // await roomRef.set(roomWithOffer);
-    // setCallRoomId(roomRef.id);
-    // pc.onaddstream = e => {
-    //   setRemoteStream(e.e.stream.toURL());
-    //   // console.log('other stream', e.stream.toURL());
-    // };
-
-    // roomRef.onSnapshot(async snapshot => {
-    //   const data = snapshot.data();
-    //   if (!pc.currentRemoteDescription && data && data.answer) {
-    //     // console.log('Got remote description: ', data.answer);
-    //     const rtcSessionDescription = new RTCSessionDescription(data.answer);
-    //     await pc.setRemoteDescription(rtcSessionDescription);
-    //   }
-    // });
-    // // Listening for remote session description above
-
-    // // Listen for remote ICE candidates below
-    // roomRef.collection('calleeCandidates').onSnapshot(snapshot => {
-    //   snapshot.docChanges().forEach(async change => {
-    //     if (change.type === 'added') {
-    //       let data = change.doc.data();
-    //       // console.log(`Got new remote ICE candidate: ${JSON.stringify(data)}`);
-    //       await pc.addIceCandidate(new RTCIceCandidate(data));
-    //     }
-    //   });
-    // });
-    // // Listen for remote ICE candidates above
-    // setCachedLocalPC(pc);
-    // console.log(`Current room is ${roomRef.id} - You are the caller!`);
+    setCachedLocalPC(pc);
   };
 
   socket.on('answer', data => {
+    console.log('getting called by', data.name);
     openAlert(data);
-    // if (busy == false) {
-    //   busy = true;
-    //   incallwith = data.callername;
-    //   // var res = confirm(data.callername + ' is calling you');
-    //   if (acceptCall == true) {
-    //     console.log('call accepted');
-    //     startCall(item);
-    //     // code
-    //     socket.emit('call_accepted', {
-    //       type: 'call_accepted',
-    //       callername: data.callername,
-    //       from: username,
-    //     });
-    //   } else {
-    //     console.log('call rejected');
-    //     socket.emit('call_rejected', {
-    //       type: 'call_rejected',
-    //       callername: data.callername,
-    //       from: username,
-    //     });
-    //     busy = false;
-    //     incallwith = '';
-    //   }
-    // } else {
-    //   console.log('call busy');
-    //   socket.emit('call_busy', {
-    //     type: 'call_busy',
-    //     callername: data.callername,
-    //     from: username,
-    //   });
-    //   busy = false;
-    //   incallwith = '';
-    // }
+    if (busy === false) {
+      if (acceptCall == true) {
+        console.log('call accepted');
+        socket.emit('call_accepted', {
+          type: 'call_accepted',
+          callername: data.name,
+          from: data.name,
+          roomWithOffer: data.roomWithOffer,
+        });
+        isBusy(true);
+        joinCall(data);
+      } else {
+        console.log('call rejected');
+        socket.emit('call_rejected', {
+          type: 'call_rejected',
+          callername: data.name,
+          from: data.name,
+        });
+        isBusy(false);
+      }
+    } else {
+      console.log('call busy');
+      socket.emit('call_busy', {
+        type: 'call_busy',
+        callername: data.name,
+        from: data.name,
+      });
+    }
   });
 
-  // const joinCall = async roomId => {
-  //   const mediaStream = await openUserMedia('item');
-  //   const roomRef = db.collection('rooms').doc(`${roomId}`);
-  //   const roomSnapshot = await roomRef.get();
-  //   console.log('Got room:', roomSnapshot.exists);
+  socket.on('call_response', data => {
+    switch (data.response) {
+      case 'accepted':
+        console.log('Call accepted by :' + data.responsefrom);
+        isBusy(true);
+        break;
+      case 'rejected':
+        console.log('Call rejected by :' + data.responsefrom);
+        isBusy(false);
+        rejectCall(data.responsefrom);
+        break;
+      case 'busy':
+        console.log(data.responsefrom + ' call busy');
+        isBusy(false);
+        callerBusy(data.responsefrom);
+        break;
+      default:
+        console.log(data.name + ' is offline');
+        offline(data.name);
+        isBusy(false);
+    }
+  });
 
-  //   if (roomSnapshot.exists) {
-  //     console.log('Create PeerConnection with configuration: ', configuration);
-  //     setLocalStream(mediaStream);
-  //     pc.addStream(mediaStream);
-  //     const calleeCandidatesCollection = roomRef.collection('calleeCandidates');
+  const joinCall = async data => {
+    const mediaStream = await openUserMedia(data);
+    setLocalStream(mediaStream);
+    pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    await pc.addIceCandidate(new RTCIceCandidate(data));
+    pc.addStream(mediaStream);
+    pc.onicecandidate = e => {
+      if (e.candidate) {
+        console.log('localPC icecandidate:', e.candidate.toJSON());
+      }
+    };
+    pc.onaddstream = e => {
+      setRemoteStream(e.stream);
+      console.log('Got remote track:', e.streams[0]);
+    };
 
-  //     pc.onicecandidate = e => {
-  //       if (e.candidate) {
-  //         console.log('localPC icecandidate:', e.candidate.toJSON());
-  //       }
-  //     };
-
-  //     pc.onaddstream = e => {
-  //       setRemoteStream(e.stream);
-  //       console.log('Got remote track:', e.streams[0]);
-  //     };
-
-  //     const offer = roomSnapshot.data().offer;
-  //     console.log('Got offer:', offer);
-  //     await pc.setRemoteDescription(new RTCSessionDescription(offer));
-  //     const answer = await pc.createAnswer();
-  //     console.log('Created answer:', answer);
-  //     await pc.setLocalDescription(answer);
-
-  //     const roomWithAnswer = {
-  //       answer: {
-  //         type: answer.type,
-  //         sdp: answer.sdp,
-  //       },
-  //     };
-
-  //     await roomRef.update(roomWithAnswer);
-
-  //     roomRef.collection('callerCandidates').onSnapshot(snapshot => {
-  //       snapshot.docChanges().forEach(async change => {
-  //         if (change.type === 'added') {
-  //           let data = change.doc.data();
-  //           console.log(
-  //             `Got new remote ICE candidate: ${JSON.stringify(data)}`,
-  //           );
-  //           await pc.addIceCandidate(new RTCIceCandidate(data));
-  //         }
-  //       });
-  //     });
-  //     // await roomRef.update(roomWithAnswer);
-
-  //     // await pc.setLocalDescription(offer);
-
-  //     // await pc.addIceCandidate(new RTCIceCandidate(data));
-  //   }
-  //   setCachedLocalPC(pc);
-
-  //   // await pc.setRemoteDescription(new RTCSessionDescription(offer));
-  //   // const answer = await pc.createAnswer();
-  //   // console.log('Created answer:', answer);
-  //   // await pc.setLocalDescription(answer);
-
-  //   // const calleeCandidatesCollection = roomRef.collection('calleeCandidates');
-
-  //   // await pc.addIceCandidate(new RTCIceCandidate(data));
-
-  //   // pc.onaddstream = e => {
-  //   //   setRemoteStream(e.stream);
-  //   //   console.log('other stream', e.stream, e.stream.toURL());
-  //   // };
-  // };
+    setCachedLocalPC(pc);
+  };
 
   const openAlert = data => {
+    let val = false;
     Alert.alert(
       'Calling',
       `${data.name} is calling you`,
@@ -354,6 +297,34 @@ const ContactScreen = () => {
         {text: 'Yes', onPress: () => onAcceptCall(true)},
       ],
       {cancelable: false},
+    );
+  };
+
+  const offline = data => {
+    Alert.alert(
+      'Sorry',
+      `${data} is offline`,
+      [{text: 'Ok', onPress: () => updateCalling(false)}],
+      {cancelable: true},
+    );
+    // ;
+  };
+
+  const rejectCall = data => {
+    Alert.alert(
+      'Sorry',
+      `${data} rejected your call`,
+      [{text: 'Ok', onPress: () => updateCalling(false)}],
+      {cancelable: true},
+    );
+  };
+
+  const callerBusy = data => {
+    Alert.alert(
+      'Sorry',
+      `${data} is busy on another call`,
+      [{text: 'Ok', onPress: () => updateCalling(false)}],
+      {cancelable: true},
     );
   };
 
@@ -416,9 +387,6 @@ const ContactScreen = () => {
             Profile
           </Text>
         </TouchableOpacity>
-        <Text style={styles.subStyle} onPress={openAlert}>
-          Join call
-        </Text>
       </View>
     </>
   );
@@ -442,7 +410,7 @@ const ContactScreen = () => {
                   textAlign: 'center',
                   marginTop: 50,
                 }}>
-                Loading user online
+                Loading users online
               </Text>
             ) : (
               <FlatList

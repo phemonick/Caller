@@ -46,7 +46,6 @@ const styles = {
 
 const CallerScreen = props => {
   const endCall = () => props.updateCalling(false);
-  console.log(props, 'props')
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor="#22222e" />
@@ -54,7 +53,7 @@ const CallerScreen = props => {
         <View style={[{flex: 1}, styles.elementsContainer]}>
           <View style={{flex: 1, backgroundColor: '#1b1b25', padding: 10}}>
             <Text style={styles.talking}>Talking with: {props.item.name}</Text>
-            <Text style={styles.details}>ID:{props.item.user.roomId}</Text>
+            <Text style={styles.details}>ID:{props.item.roomId}</Text>
           </View>
           <View style={{flex: 5}}>
             <Image
@@ -64,15 +63,6 @@ const CallerScreen = props => {
               }}
               style={styles.pic}
             />
-            <Text
-              style={{
-                height: 40,
-                borderColor: 'gray',
-                color: 'black',
-                borderWidth: 1,
-              }}>
-              {props.callRoomId}
-            </Text>
           </View>
           <TouchableOpacity style={styles.button} onPress={endCall}>
             <Text style={{fontSize: 25, color: 'white'}}>End</Text>
