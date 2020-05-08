@@ -108,7 +108,7 @@ const UUID = () => {
 
 // forceNode: true,
 
-const SocketServer = 'https://4f7f9a18.ngrok.io';
+const SocketServer = 'http://50e40371.ngrok.io';
 
 const connectionConfig = {
   jsonp: false,
@@ -149,13 +149,36 @@ const ContactScreen = () => {
         ios: PERMISSIONS.IOS.MICROPHONE,
       }),
     );
+    socket.on('connect', () => {
+      console.log('connect');
+    });
   });
 
   socket.emit('login', loginUser);
 
+  socket.on('roommessage', function(message) {
+    var data = message;
+
+    switch (data.type) {
+      case 'login':
+        console.log('New user : ' + data.username);
+        break;
+      case 'disconnect':
+        console.log('User disconnected : ' + data.username);
+        break;
+      default:
+        break;
+    }
+  });
+
   socket.on('updateUserList', users => {
-    console.log(users, 'users');
-    updateUser([...userList, ...users]);
+    const addUser = users.filter(user => user.roomId !== loginUser.roomId);
+    updateUser([...userList, ...addUser]);
+  });
+
+  socket.on('removeUser', data => {
+    const removeUser = data.filter(user => user.roomId !== loginUser.roomId);
+    updateUser([...removeUser]);
   });
 
   const openUserMedia = async item => {
@@ -205,58 +228,86 @@ const ContactScreen = () => {
     setCachedLocalPC(pc);
   };
 
-  socket.on('answer', data => {
-    console.log('getting called by', data.name);
-    openAlert(data);
-    if (busy === false) {
-      if (acceptCall == true) {
-        console.log('call accepted');
-        socket.emit('call_accepted', {
-          type: 'call_accepted',
-          callername: data.name,
-          from: data.name,
-          roomWithOffer: data.roomWithOffer,
-        });
-        isBusy(true);
-        joinCall(data);
-      } else {
-        console.log('call rejected');
-        socket.emit('call_rejected', {
-          type: 'call_rejected',
-          callername: data.name,
-          from: data.name,
-        });
-        isBusy(false);
-      }
-    } else {
-      console.log('call busy');
+  socket.on('answer', async data => {
+    console.log(acceptCall, 'acceptCall');
+    if (busy) {
       socket.emit('call_busy', {
         type: 'call_busy',
         callername: data.name,
         from: data.name,
       });
+    } else {
+      await AsyncAlert(data);
     }
   });
 
-  socket.on('call_response', data => {
+  const AsyncAlert = data =>
+    new Promise(resolve => {
+      Alert.alert(
+        'Calling',
+        `${data.name} is calling you`,
+        [
+          {
+            text: 'Cancel',
+            onPress: () => acceptCaller(false, data, resolve),
+            style: 'Yes',
+          },
+          {
+            text: 'Yes',
+            onPress: () => acceptCaller(true, data, resolve),
+            style: 'Yes',
+          },
+        ],
+        {cancelable: false},
+      );
+    });
+
+  const acceptCaller = (value, data, resolve) => {
+    if (value) {
+      console.log('call accepted');
+      socket.emit('call_accepted', {
+        type: 'call_accepted',
+        callername: data.name,
+        from: data.name,
+        roomWithOffer: data.roomWithOffer,
+      });
+      joinCall(data);
+      isBusy(true);
+    } else {
+      console.log('call rejected');
+      socket.emit('call_rejected', {
+        type: 'call_rejected',
+        callername: data.name,
+        from: data.name,
+      });
+      isBusy(false);
+    }
+    return resolve('YES');
+  };
+
+  socket.on('call_response', async data => {
     switch (data.response) {
       case 'accepted':
         console.log('Call accepted by :' + data.responsefrom);
         isBusy(true);
+        updateCalling(true);
         break;
       case 'rejected':
         console.log('Call rejected by :' + data.responsefrom);
         isBusy(false);
         rejectCall(data.responsefrom);
+        updateCalling(false);
         break;
       case 'busy':
         console.log(data.responsefrom + ' call busy');
         isBusy(false);
         callerBusy(data.responsefrom);
+        updateCalling(true);
         break;
       default:
         console.log(data.name + ' is offline');
-        offline(data.name);
+        await offline(data.name);
+        updateCalling(false);
         isBusy(false);
     }
   });
@@ -283,32 +334,26 @@ const ContactScreen = () => {
     setCachedLocalPC(pc);
   };
 
-  const openAlert = data => {
-    let val = false;
-    Alert.alert(
-      'Calling',
-      `${data.name} is calling you`,
-      [
-        {
-          text: 'Cancel',
-          onPress: () => onAcceptCall(false),
-          style: 'No',
-        },
-        {text: 'Yes', onPress: () => onAcceptCall(true)},
-      ],
-      {cancelable: false},
-    );
+  const updateCaller = (myValue, resolve) => {
+    onAcceptCall(myValue);
+    return resolve('YES');
   };
 
-  const offline = data => {
-    Alert.alert(
-      'Sorry',
-      `${data} is offline`,
-      [{text: 'Ok', onPress: () => updateCalling(false)}],
-      {cancelable: true},
-    );
-    // ;
-  };
+  const offline = data =>
+    new Promise(resolve => {
+      Alert.alert(
+        'Offline',
+        `${data} is offline`,
+        [
+          {
+            text: 'Ok',
+            onPress: () => updateCaller(false, resolve),
+            style: 'Yes',
+          },
+        ],
+        {cancelable: true},
+      );
+    });
 
   const rejectCall = data => {
     Alert.alert(
@@ -442,6 +487,7 @@ const ContactScreen = () => {
           callRoomId={callRoomId}
         />
       )}
+      {/* {contactHeader()} */}
     </>
   );
 };
