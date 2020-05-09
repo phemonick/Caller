@@ -10,7 +10,8 @@ import {
   Dimensions,
   Platform,
   Alert,
-  TextInput,
+  YellowBox,
+  ToastAndroid,
 } from 'react-native';
 import {
   RTCPeerConnection,
@@ -22,11 +23,15 @@ import faker from 'faker';
 
 import io from 'socket.io-client';
 
-import db from './config';
-
 import {PERMISSIONS, request} from 'react-native-permissions';
 import CallerScreen from './CallerScreen';
 import Profile from './Profile';
+
+YellowBox.ignoreWarnings([
+  'Setting a timer',
+  'Unrecognized WebSocket connection',
+  'ListView is deprecated and will be removed',
+]);
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -106,18 +111,10 @@ const UUID = () => {
   });
 };
 
-// forceNode: true,
-
 const SocketServer = 'http://50e40371.ngrok.io';
 
 const connectionConfig = {
-  jsonp: false,
-  reconnection: true,
-  reconnectionDelay: 100,
-  reconnectionAttempts: 5000,
   transports: ['websocket'],
-  secure: true,
-  rejectUnauthorized: false,
 };
 
 const ContactScreen = () => {
@@ -149,9 +146,10 @@ const ContactScreen = () => {
         ios: PERMISSIONS.IOS.MICROPHONE,
       }),
     );
-    socket.on('connect', () => {
-      console.log('connect');
-    });
+  });
+
+  socket.on('connect', () => {
+    console.log('connect');
   });
 
   socket.emit('login', loginUser);
@@ -173,11 +171,12 @@ const ContactScreen = () => {
 
   socket.on('updateUserList', users => {
     const addUser = users.filter(user => user.roomId !== loginUser.roomId);
-    updateUser([...userList, ...addUser]);
+    updateUser([...addUser]);
   });
 
   socket.on('removeUser', data => {
     const removeUser = data.filter(user => user.roomId !== loginUser.roomId);
+    console.log('removeing user');
     updateUser([...removeUser]);
   });
 
@@ -198,26 +197,29 @@ const ContactScreen = () => {
   const startCall = async item => {
     const mediaStream = await openUserMedia(item);
     setLocalStream(mediaStream);
-    pc.onicecandidate = e => {
-      if (e.candidate) {
-        // socket.emit('exchange', {
-        //   to: item.roomOId,
-        //   candidate: e.candidate,
-        // });
-        new RTCIceCandidate(e.candidate);
-        // remotePC.addIceCandidate(e.candidate);
-      }
-    };
 
-    pc.onaddstream = e => {
-      setRemoteStream(e.stream.toURL());
-      console.log('other stream', e.stream.toURL());
-    };
+    // pc.onicecandidate = e => {
+    //   if (e.candidate) {
+    //     if (e.candidate) {
+    //       // socket.emit('exchange', {
+    //       //   to: socketId,
+    //       //   candidate: e.candidate,
+    //       // });
+    //     }
+    //     // socket.emit('exchange', {
+    //     //   to: item.roomOId,
+    //     //   candidate: e.candidate,
+    //     // });
+    //     new RTCIceCandidate(e.candidate);
+    //     // remotePC.addIceCandidate(e.candidate);
+    //   }
+    // };
+
+    // pc.onicecandidate = ({candidate}) => signaling.send({candidate});
 
     pc.addStream(mediaStream);
-
     const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
+    await pc.setLocalDescription(new RTCSessionDescription(offer));
     socket.emit('call_user', {
       type: 'call_user',
       name: item.name,
@@ -225,6 +227,38 @@ const ContactScreen = () => {
       roomId: item.roomId,
       offer,
     });
+   
+  };
+
+  const joinCall = async data => {
+    const mediaStream = await openUserMedia(data);
+    setLocalStream(mediaStream);
+    await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    let answer = await pc.createAnswer();
+    await pc.setLocalDescription(new RTCSessionDescription(answer));
+
+    socket.emit('call_accepted', {
+      type: 'call_accepted',
+      callername: data.name,
+      from: data.name,
+      answer,
+    });
+    pc.onaddstream = e => {
+      setRemoteStream(e.stream);
+      console.log('Got remote track:', e.streams);
+    };
+    // pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+    // const answer = await pc.createAnswer();
+    // await pc.setLocalDescription(answer);
+    // await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    // await pc.addIceCandidate(new RTCIceCandidate(data));
+    // pc.addStream(mediaStream);
+    // pc.onicecandidate = e => {
+    //   if (e.candidate) {
+    //     console.log('localPC icecandidate:', e.candidate.toJSON());
+    //   }
+    // };
+
     setCachedLocalPC(pc);
   };
 
@@ -237,40 +271,32 @@ const ContactScreen = () => {
         from: data.name,
       });
     } else {
-      await AsyncAlert(data);
+      AsyncAlert(data);
     }
   });
 
   const AsyncAlert = data =>
-    new Promise(resolve => {
-      Alert.alert(
-        'Calling',
-        `${data.name} is calling you`,
-        [
-          {
-            text: 'Cancel',
-            onPress: () => acceptCaller(false, data, resolve),
-            style: 'Yes',
-          },
-          {
-            text: 'Yes',
-            onPress: () => acceptCaller(true, data, resolve),
-            style: 'Yes',
-          },
-        ],
-        {cancelable: false},
-      );
-    });
+    Alert.alert(
+      'Calling',
+      `${data.name} is calling you`,
+      [
+        {
+          text: 'Cancel',
+          onPress: () => acceptCaller(false, data),
+          style: 'Yes',
+        },
+        {
+          text: 'Yes',
+          onPress: () => acceptCaller(true, data),
+          style: 'Yes',
+        },
+      ],
+      {cancelable: false},
+    );
 
-  const acceptCaller = (value, data, resolve) => {
+  const acceptCaller = (value, data) => {
     if (value) {
       console.log('call accepted');
-      socket.emit('call_accepted', {
-        type: 'call_accepted',
-        callername: data.name,
-        from: data.name,
-        roomWithOffer: data.roomWithOffer,
-      });
       joinCall(data);
       isBusy(true);
     } else {
@@ -282,97 +308,56 @@ const ContactScreen = () => {
       });
       isBusy(false);
     }
-    return resolve('YES');
   };
 
-  socket.on('call_response', async data => {
+  socket.on('call_response', data => {
+    console.log(data.answer, 'anwser');
     switch (data.response) {
       case 'accepted':
         console.log('Call accepted by :' + data.responsefrom);
-        isBusy(true);
         updateCalling(true);
+        pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+        pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        pc.onaddstream = e => {
+          setRemoteStream(e.stream[0]);
+        };
+        isBusy(true);
         break;
       case 'rejected':
         console.log('Call rejected by :' + data.responsefrom);
-        isBusy(false);
-        rejectCall(data.responsefrom);
-        updateCalling(false);
+        handleAlert('Sorry', 'rejected your call', data.responsefrom);
         break;
       case 'busy':
         console.log(data.responsefrom + ' call busy');
-        isBusy(false);
-        callerBusy(data.responsefrom);
-        updateCalling(true);
+        handleAlert('Sorry', 'is busy at the monent', data.responsefrom);
         break;
       default:
         console.log(data.name + ' is offline');
-        await offline(data.name);
-        updateCalling(false);
-        isBusy(false);
+        // handleAlert('Offline', 'is offline', data.name);
+        handleToast(data.name, 'is Offline');
     }
   });
 
-  const joinCall = async data => {
-    const mediaStream = await openUserMedia(data);
-    setLocalStream(mediaStream);
-    pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    await pc.addIceCandidate(new RTCIceCandidate(data));
-    pc.addStream(mediaStream);
-    pc.onicecandidate = e => {
-      if (e.candidate) {
-        console.log('localPC icecandidate:', e.candidate.toJSON());
-      }
-    };
-    pc.onaddstream = e => {
-      setRemoteStream(e.stream);
-      console.log('Got remote track:', e.streams[0]);
-    };
-
-    setCachedLocalPC(pc);
-  };
-
-  const updateCaller = (myValue, resolve) => {
-    onAcceptCall(myValue);
-    return resolve('YES');
-  };
-
-  const offline = data =>
-    new Promise(resolve => {
-      Alert.alert(
-        'Offline',
-        `${data} is offline`,
-        [
-          {
-            text: 'Ok',
-            onPress: () => updateCaller(false, resolve),
-            style: 'Yes',
-          },
-        ],
-        {cancelable: true},
-      );
-    });
-
-  const rejectCall = data => {
+  const handleAlert = (title, message, data) => {
+    isBusy(false);
     Alert.alert(
-      'Sorry',
-      `${data} rejected your call`,
+      `${title}`,
+      `${data} ${message}`,
       [{text: 'Ok', onPress: () => updateCalling(false)}],
       {cancelable: true},
     );
   };
 
-  const callerBusy = data => {
-    Alert.alert(
-      'Sorry',
-      `${data} is busy on another call`,
-      [{text: 'Ok', onPress: () => updateCalling(false)}],
-      {cancelable: true},
+  const handleToast = (data, message) => {
+    ToastAndroid.showWithGravity(
+      `${data} ${message}`,
+      ToastAndroid.SHORT,
+      ToastAndroid.CENTER,
     );
+    updateCalling(false);
   };
 
+  
   const renderContact = ({item}) => {
     return (
       <View style={styles.row}>
