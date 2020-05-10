@@ -108,7 +108,7 @@ const UUID = () => {
 
 // forceNode: true,
 
-const SocketServer = 'http://50e40371.ngrok.io';
+const SocketServer = 'http://10.0.2.2:4443';
 
 const connectionConfig = {
   jsonp: false,
@@ -161,7 +161,8 @@ const ContactScreen = () => {
 
     switch (data.type) {
       case 'login':
-        console.log('New user : ' + data.username);
+        console.log('New user : ' + data);
+        updateUser([...userList, data.data])
         break;
       case 'disconnect':
         console.log('User disconnected : ' + data.username);
@@ -187,13 +188,47 @@ const ContactScreen = () => {
     try {
       const stream = await mediaDevices.getUserMedia({audio: true});
       caller(true);
+      console.log(stream, "Stream")
       return stream;
+
     } catch (error) {
       updateCalling(false);
       caller(true);
       return error;
     }
   };
+
+  function exchange(data) {
+    const fromId = data.from;
+    let pc;
+  //   for reconnection
+    if (fromId in pcPeers) {
+      pc = pcPeers[fromId];
+    } else {
+      pc = createPC(fromId, false);
+    }
+  
+    if (data.sdp) {
+      console.log('exchange sdp', data);
+      pc.setRemoteDescription(new RTCSessionDescription(data.sdp), function () {
+        if (pc.remoteDescription.type == "offer")
+          pc.createAnswer(function (desc) {
+            console.log('createAnswer', desc);
+            pc.setLocalDescription(desc, function () {
+              console.log('setLocalDescription', pc.localDescription);
+              socket.emit('exchange', {
+                'to': fromId,
+                'sdp': pc.localDescription
+              });
+            }, logError);
+          }, logError);
+        }
+      , logError);
+    } else {
+      console.log('exchange candidate', data);
+      pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+    }
+  }
 
   const startCall = async item => {
     const mediaStream = await openUserMedia(item);
@@ -265,7 +300,7 @@ const ContactScreen = () => {
   const acceptCaller = (value, data, resolve) => {
     if (value) {
       console.log('call accepted');
-      socket.emit('call_accepted', {
+      socket.send('call_accepted', {
         type: 'call_accepted',
         callername: data.name,
         from: data.name,
@@ -275,7 +310,7 @@ const ContactScreen = () => {
       isBusy(true);
     } else {
       console.log('call rejected');
-      socket.emit('call_rejected', {
+      socket.send('call_rejected', {
         type: 'call_rejected',
         callername: data.name,
         from: data.name,
@@ -286,6 +321,7 @@ const ContactScreen = () => {
   };
 
   socket.on('call_response', async data => {
+    console.log(data, ">>>>>>>>>><<<<<<<<");
     switch (data.response) {
       case 'accepted':
         console.log('Call accepted by :' + data.responsefrom);
@@ -313,25 +349,30 @@ const ContactScreen = () => {
   });
 
   const joinCall = async data => {
-    const mediaStream = await openUserMedia(data);
-    setLocalStream(mediaStream);
-    pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    await pc.addIceCandidate(new RTCIceCandidate(data));
-    pc.addStream(mediaStream);
-    pc.onicecandidate = e => {
-      if (e.candidate) {
-        console.log('localPC icecandidate:', e.candidate.toJSON());
-      }
-    };
-    pc.onaddstream = e => {
-      setRemoteStream(e.stream);
-      console.log('Got remote track:', e.streams[0]);
-    };
-
-    setCachedLocalPC(pc);
+    try {
+      const mediaStream = await openUserMedia(data);
+      setLocalStream(mediaStream);
+      console.log("Got here", mediaStream, data)
+      pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      // await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      await pc.addIceCandidate(new RTCIceCandidate(data));
+      pc.addStream(mediaStream);
+      pc.onicecandidate = e => {
+        if (e.candidate) {
+          console.log('localPC icecandidate:', e.candidate.toJSON());
+        }
+      };
+      pc.onaddstream = e => {
+        setRemoteStream(e.stream);
+        console.log('Got remote track:', e.streams[0]);
+      };
+  
+      setCachedLocalPC(pc);
+    } catch(error) {
+      console.log(error)
+    }
   };
 
   const updateCaller = (myValue, resolve) => {
@@ -374,6 +415,8 @@ const ContactScreen = () => {
   };
 
   const renderContact = ({item}) => {
+    console.log(isCall, "ISCALL");
+    console.log(loginUser, "LOGIN USER")
     return (
       <View style={styles.row}>
         <Image source={{uri: item.image}} style={styles.pic} />

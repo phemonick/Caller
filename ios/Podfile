@@ -1,4 +1,4 @@
-platform :ios, '9.0'
+platform :ios, '10.0'
 require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
 
 def add_flipper_pods!(versions = {})
@@ -18,7 +18,7 @@ def add_flipper_pods!(versions = {})
   # List all transitive dependencies for FlipperKit pods
   # to avoid them being linked in Release builds
   pod 'Flipper', versions['Flipper'], :configuration => 'Debug'
-  pod 'Flipper-DoubleConversion', versions['DoubleConversion'], :configuration => 'Debug'
+  pod 'Flipper-DoubleConEnables Flipperversion', versions['DoubleConversion'], :configuration => 'Debug'
   pod 'Flipper-Folly', versions['Flipper-Folly'], :configuration => 'Debug'
   pod 'Flipper-Glog', versions['Flipper-Glog'], :configuration => 'Debug'
   pod 'Flipper-PeerTalk', versions['Flipper-PeerTalk'], :configuration => 'Debug'
@@ -46,6 +46,9 @@ end
 
 target 'Caller' do
   # Pods for Caller
+
+  permissions_path = '../node_modules/react-native-permissions/ios'
+
   pod 'FBLazyVector', :path => "../node_modules/react-native/Libraries/FBLazyVector"
   pod 'FBReactNativeSpec', :path => "../node_modules/react-native/Libraries/FBReactNativeSpec"
   pod 'RCTRequired', :path => "../node_modules/react-native/Libraries/RCTRequired"
@@ -64,6 +67,8 @@ target 'Caller' do
   pod 'React-RCTText', :path => '../node_modules/react-native/Libraries/Text'
   pod 'React-RCTVibration', :path => '../node_modules/react-native/Libraries/Vibration'
   pod 'React-Core/RCTWebSocket', :path => '../node_modules/react-native/'
+  pod 'RNPermissions', :path => '../node_modules/react-native-permissions'
+  pod 'Permission-Microphone', :path => "#{permissions_path}/Microphone.podspec"
 
   pod 'React-cxxreact', :path => '../node_modules/react-native/ReactCommon/cxxreact'
   pod 'React-jsi', :path => '../node_modules/react-native/ReactCommon/jsi'
@@ -80,7 +85,7 @@ target 'Caller' do
   target 'CallerTests' do
     inherit! :complete
     # Pods for testing
-    pod 'Permission-Microphone', :path => '#{permissions_path}/Microphone.podspec'
+     pod 'Permission-Microphone', :path => "#{permissions_path}/Microphone.podspec"
 
  
   end

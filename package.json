@@ -9,9 +9,11 @@
     "test": "jest",
     "lint": "eslint ."
   },
+  "postinstall": "npx jetify",
   "dependencies": {
     "faker": "^4.1.0",
     "firebase": "^7.14.2",
+    "lodash": "^4.17.15",
     "react": "16.11.0",
     "react-native": "0.62.2",
     "react-native-permissions": "^2.1.4",
@@ -25,6 +27,7 @@
     "babel-jest": "^24.9.0",
     "eslint": "^6.5.1",
     "jest": "^24.9.0",
+    "jetifier": "^1.6.5",
     "metro-react-native-babel-preset": "^0.58.0",
     "react-test-renderer": "16.11.0"
   },
