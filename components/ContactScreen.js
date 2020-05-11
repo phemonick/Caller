@@ -325,8 +325,13 @@ const ContactScreen = () => {
     switch (data.response) {
       case 'accepted':
         console.log('Call accepted by :' + data.responsefrom);
-        isBusy(true);
         updateCalling(true);
+        pc.setRemoteDescription(new RTCSessionDescription(data.answer.sdp));
+        pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+        pc.onaddstream = e => {
+          setRemoteStream(e.stream[0]);
+        }
+        isBusy(true);
         break;
       case 'rejected':
         console.log('Call rejected by :' + data.responsefrom);
@@ -352,22 +357,38 @@ const ContactScreen = () => {
     try {
       const mediaStream = await openUserMedia(data);
       setLocalStream(mediaStream);
-      console.log("Got here", mediaStream, data)
-      pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      // await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
-      await pc.addIceCandidate(new RTCIceCandidate(data));
-      pc.addStream(mediaStream);
-      pc.onicecandidate = e => {
-        if (e.candidate) {
-          console.log('localPC icecandidate:', e.candidate.toJSON());
-        }
-      };
+      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      let answer = await pc.createAnswer();
+      await pc.setLocalDescription(new RTCSessionDescription(answer));
+
+      socket.emit('call_accepted', {
+        type: 'call_accepted',
+        callername: data.name,
+        from: data.name,
+        answer,
+      });
       pc.onaddstream = e => {
         setRemoteStream(e.stream);
-        console.log('Got remote track:', e.streams[0]);
+        console.log('Got remote track:', e.streams);
       };
+      // const mediaStream = await openUserMedia(data);
+      // setLocalStream(mediaStream);
+      // console.log("Got here", mediaStream, data)
+      // pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      // const answer = await pc.createAnswer();
+      // await pc.setLocalDescription(answer);
+      // // await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      // await pc.addIceCandidate(new RTCIceCandidate(data));
+      // pc.addStream(mediaStream);
+      // pc.onicecandidate = e => {
+      //   if (e.candidate) {
+      //     console.log('localPC icecandidate:', e.candidate.toJSON());
+      //   }
+      // };
+      // pc.onaddstream = e => {
+      //   setRemoteStream(e.stream);
+      //   console.log('Got remote track:', e.streams[0]);
+      // };
   
       setCachedLocalPC(pc);
     } catch(error) {
